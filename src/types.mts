@@ -284,6 +284,7 @@ export interface FileConfig {
     headerParams?: string[];
   };
   generateEnumAsType?: boolean;
+  defaultNullable?: boolean
 
   //kotlin
   kotlinPackage?: string;

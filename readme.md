@@ -98,6 +98,7 @@ For Example:
 | `generateEnumAsType` | false                  |
 | `includes`           | []                     | A list of regex patterns that specify which APIs to include based on matching method names                                                                                                                                                     |
 | `excludes`           | []                     | A list of regex patterns that specify which APIs to exclude based on matching method names                                                                                                                                                     |
+| `defaultNullable`           | true                     | If set to false, generated property types would not be optional by default                                                                                                                                                  |
 
 - `enum ReferralStatus {Successed="Successed","Error"="Error"} `
 - `type ReferralStatus="Successed" | "Error"; // generateEnumAsType = true `

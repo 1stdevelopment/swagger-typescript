@@ -221,7 +221,7 @@ function generateHook(
       }
     } else {
       result += `
-        return useMutation<SwaggerResponse<${TData}>, RequestError | Error, {${TVariables}}>({
+        return useMutation({
           mutationFn: (_o) => {
             const { ${getParamsString({
         pathParams,

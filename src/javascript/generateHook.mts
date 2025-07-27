@@ -135,8 +135,8 @@ function generateHook(
       if (hasSwitchablePagination) {
         return `({
           ${INFINITY_PARAMS}?: Infinite;
-        } & (
-          SwaggerTypescriptUseQueryOptions<${TData}> |
+        } & ( Infinite extends false ?
+          SwaggerTypescriptUseQueryOptions<${TData}> :
           UseInfiniteQueryOptions<${TQueryFnData}, ${TError}>
         ))`;
       }

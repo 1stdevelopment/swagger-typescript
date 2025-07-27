@@ -91,7 +91,8 @@ import {
   ${
     hasInfinity
       ? `  useInfiniteQuery,
-  UseInfiniteQueryOptions,`
+  UseInfiniteQueryOptions,
+  UseInfiniteQueryResult,`
       : ""
   }
   QueryClient,

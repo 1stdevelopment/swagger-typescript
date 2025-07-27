@@ -135,8 +135,8 @@ function generateHook(
       if (hasSwitchablePagination) {
         return `({
           ${INFINITY_PARAMS}?: Infinite;
-        } & (
-          SwaggerTypescriptUseQueryOptions<${TData}> |
+        } & ( Infinite extends false ?
+          SwaggerTypescriptUseQueryOptions<${TData}> :
           UseInfiniteQueryOptions<${TQueryFnData}, ${TError}>
         ))`;
       }
@@ -186,7 +186,7 @@ function generateHook(
           data: { pages } = {},
           data,
           ...rest
-        } = useInfiniteQuery<TData>({
+        } = useInfiniteQuery({
           ${hasEnable ? `enabled: options?.${INFINITY_PARAMS},` : ""}
           queryKey: key,
           queryFn: ({ pageParam }) =>
@@ -197,7 +197,7 @@ function generateHook(
             }),
           initialPageParam: 1,
           getNextPageParam: (_lastPage, allPages) => allPages.length + 1,
-          ...(options as any),
+          ...options,
         });
 
         const list = useMemo(() => paginationFlattenData(pages), [pages]);
@@ -221,7 +221,7 @@ function generateHook(
       }
     } else {
       result += `
-        return useMutation<SwaggerResponse<${TData}>, RequestError | Error, {${TVariables}}>({
+        return useMutation({
           mutationFn: (_o) => {
             const { ${getParamsString({
         pathParams,
@@ -316,9 +316,9 @@ export type SwaggerTypescriptMutationDefaultParams<TExtra> = {
   configOverride?: AxiosRequestConfig;
 };
 
-export type SwaggerTypescriptUseQueryOptions<TData> = Omit<
-  UseQueryResult<SwaggerResponse<TData>, RequestError | Error>,
-  "queryKey"
+type SwaggerTypescriptUseQueryOptions<TData> = UseQueryOptions<
+  SwaggerResponse<TData>,
+  RequestError | Error
 >;
 
 export type SwaggerTypescriptUseMutationOptions<TData, TRequest, TExtra> = UseMutationOptions<

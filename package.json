@@ -1,0 +1,83 @@
+{
+  "name": "swagger-typescript",
+  "version": "6.8.0",
+  "description": "An auto ts/js code generate from swagger/openApi",
+  "main": "lib/index.mjs",
+  "bin": {
+    "swag-ts": "./bin/index.mjs"
+  },
+  "type": "module",
+  "scripts": {
+    "prepare": "husky install && tsc",
+    "test:api": "yarn prepare && node ./bin/index.mjs",
+    "lint": "eslint src/**/*.ts",
+    "eslint-fix": "eslint src/**/*.ts --fix",
+    "prettier-fix": "prettier --write \"**/*.{ts,tsx}\"",
+    "test": "yarn prepare && cross-env NODE_OPTIONS=--experimental-vm-modules npx jest",
+    "release": "yarn prepare && yarn test && standard-version && git push --follow-tags origin master && npm publish"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/hosseinmd/swagger-typescript.git"
+  },
+  "keywords": [
+    "swagger",
+    "typescript",
+    "nswag",
+    "openApi 3",
+    "swagger 2",
+    "code generator",
+    "hossein mohammadi"
+  ],
+  "author": "Hossein mohammadi",
+  "license": "MIT",
+  "bugs": {
+    "url": "https://github.com/hosseinmd/swagger-typescript/issues"
+  },
+  "homepage": "https://github.com/hosseinmd/swagger-typescript#readme",
+  "dependencies": {
+    "chalk": "^5.0.1",
+    "form-data": "^4.0.0",
+    "js-yaml": "^4.1.0",
+    "postman-to-openapi": "^3.0.1",
+    "qs": "^6.11.0",
+    "recursive-readdir": "^2.2.3",
+    "swagger2openapi": "^7.0.8",
+    "tsc-prog": "^2.2.1",
+    "yargs": "^17.5.1"
+  },
+  "devDependencies": {
+    "@commitlint/config-conventional": "^17.0.3",
+    "@tanstack/react-query": "^5.25.0",
+    "@types/jest": "^28.1.6",
+    "@types/js-yaml": "^4.0.5",
+    "@types/node": "^14.14.22",
+    "@types/prettier": "^2.6.3",
+    "@types/qs": "^6.9.7",
+    "@typescript-eslint/eslint-plugin": "^5.30.7",
+    "@typescript-eslint/parser": "^5.30.7",
+    "axios": "^0.27.2",
+    "commitlint": "^17.0.3",
+    "cross-env": "^7.0.3",
+    "eslint": "^8.20.0",
+    "eslint-plugin-prettier": "^4.2.1",
+    "husky": "^8.0.1",
+    "jest": "^28.1.3",
+    "prettier": "^3.0.0",
+    "prettier-plugin-jsdoc": "^1.0.1",
+    "standard-version": "^9.5.0",
+    "ts-jest": "^28.0.7",
+    "ts-node": "^10.9.1",
+    "typescript": "^4.9.3"
+  },
+  "peerDependencies": {
+    "@tanstack/react-query": ">=4.8",
+    "axios": ">=0.27",
+    "prettier": ">=2.2"
+  },
+  "files": [
+    "lib",
+    "files",
+    "bin"
+  ]
+}

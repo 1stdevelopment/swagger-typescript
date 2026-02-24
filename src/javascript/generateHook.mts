@@ -316,10 +316,10 @@ export type SwaggerTypescriptMutationDefaultParams<TExtra> = {
   configOverride?: AxiosRequestConfig;
 };
 
-type SwaggerTypescriptUseQueryOptions<TData> = UseQueryOptions<
+type SwaggerTypescriptUseQueryOptions<TData> = Omit<UseQueryOptions<
   SwaggerResponse<TData>,
   RequestError | Error
->;
+>, 'queryKey'>;
 
 export type SwaggerTypescriptUseMutationOptions<TData, TRequest, TExtra> = UseMutationOptions<
   SwaggerResponse<TData>,

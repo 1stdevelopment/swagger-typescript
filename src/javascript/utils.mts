@@ -116,7 +116,7 @@ function normalizeObjectPropertyNullable(
   if (required) {
     return !required.includes(propertyName);
   }
-    if (config.defaultNullable !== undefined) return config.defaultNullable
+  if (config.defaultNullable !== undefined) return config.defaultNullable
   
   return true;
 }
@@ -164,7 +164,7 @@ function getTsType(
       Object.entries(properties).map(([pName, _schema]) => ({
         schema: {
           ..._schema,
-          nullable: normalizeObjectPropertyNullable(pName, _schema,config, required),
+          nullable: normalizeObjectPropertyNullable(pName, _schema, config, required),
         },
         name: pName,
       })),

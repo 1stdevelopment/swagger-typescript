@@ -96,24 +96,21 @@ For Example:
 | `local`              | false                  | update swagger with local swagger.json located in your dir folder. add it to your config file or run it with cli `$ yarn swag-ts --local`                                                                                                      |
 | `kotlinPackage`      | Required (Only kotlin) | package name of source dir                                                                                                                                                                                                                     |
 | `generateEnumAsType` | false                  |
+| `includes`           | []                     | A list of regex patterns that specify which APIs to include based on matching method names                                                                                                                                                     |
+| `excludes`           | []                     | A list of regex patterns that specify which APIs to exclude based on matching method names                                                                                                                                                     |
+| `defaultNullable`           | true                     | If set to false, generated property types would not be optional by default                                                                                                                                                  |
 
 - `enum ReferralStatus {Successed="Successed","Error"="Error"} `
-  | `defaultNullable` | true | If set to false, generated property types would not be optional by default |
 - `type ReferralStatus="Successed" | "Error"; // generateEnumAsType = true `
-  |
 
 # CLI Options
 
-| [`Key`]  | [`default`]             | Comment                                                                                                                                            |
-| -------- | ----------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `local`  | false                   | update swagger with local swagger.json located in your dir folder. add it to your config file or run it with cli `$ yarn swag-ts --local`          |
-| `branch` | Current Branch          | to generate swagger for develop run `yarn swag-ts --branch=develop` or your branch name should be `develop` or a branch which created from develop |
-| `config` | "./swagger.config.json" | A path for config file location                                                                                                                    |
-
-- `yarn swag-ts --config=./config` path is related for "swagger.config.json" file in config folder
-- `yarn swag-ts --config=./config/myswagger.json` you could change config file name
-- `yarn swag-ts --config=/user/hosseinmd/desktop/config/swagger.config.json` you could add absolute path
-  |
+| [`Key`]  | [`default`]             | Comment                                                                                                                                                                                                                                                                                                                                        |
+| -------- | ----------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `local`  | false                   | update swagger with local swagger.json located in your dir folder. add it to your config file or run it with cli `$ yarn swag-ts --local`                                                                                                                                                                                                      |
+| `branch` | Current Branch          | to generate swagger for develop run `yarn swag-ts --branch=develop` or your branch name should be `develop` or a branch which created from develop                                                                                                                                                                                             |
+| `config` | "./swagger.config.json" | A path for config file location <br> - `yarn swag-ts --config=./config` path is related for "swagger.config.json" file in config folder <br> - `yarn swag-ts --config=./config/myswagger.json` you could change config file name <br> - `yarn swag-ts --config=/user/hosseinmd/desktop/config/swagger.config.json` you could add absolute path |
+|          |
 
 ## Config
 
@@ -200,6 +197,155 @@ For Example:
 ```
 
 to generate swagger for develop run `yarn swag-ts --branch=develop` or your branch name should be `develop` or a branch which created from develop
+
+# ✨ New Feature: Conditional `useQuery` / `useInfiniteQuery` Hooks
+
+> **Available from v7.0.0** – upgrade with `yarn upgrade swagger-typescript@latest`
+
+React ‑query hooks generated by **swagger ‑typescript** can now switch between **`useQuery`** and **`useInfiniteQuery`** **at run ‑time**.
+
+* **No breaking changes** – existing code that calls hooks without extra options still behaves exactly the same (`useQuery`).
+* **Opt‑in per call‐site** – pass `{ infinit: true }` as the second argument and the hook transparently becomes an *infinite* query.
+* **Optional fallback** – keep both standard and infinite versions by setting `keepUseQuery` (see below).
+
+---
+
+## Updated `swagger.config.json`
+
+```jsonc
+{
+  // …all your previous options
+
+  "reactHooks": true,
+
+  "useInfiniteQuery": [
+    "getProducts",
+    "getPriceList",       // ← it must be infinite (old usage)
+    {
+      "keys": [           // ← list of method names that *can* be infinite
+        "getPosts",
+       "getComments"
+      ],
+     "keepUseQuery": true // ← keep the classic useQuery overload as well
+    }
+   ]
+}
+```
+
+| Key            | Type / Default        | Description                                                                                                         |
+| -------------- | --------------------- | ------------------------------------------------------------------------------------------------------------------- |
+| `keys`         | `string[]` (required) | Method names (generated **function** names, case‑insensitive) eligible for *infinite* behaviour.                    |
+| `keepUseQuery` | `boolean` (`false`)   | When `true`, two overloads are emitted: **run‑time** switch (preferred) *and* the legacy `useQuery`‑only signature. |
+
+> **Legacy Array Style** – Passing a simple string array (`["getUsers", "getProducts"]`) is still supported for backward compatibility. This behaves as if `keepUseQuery` was `false`.
+
+---
+
+## Generated Hook Signatures
+
+```ts
+// before v7
+function useGetPosts(params?: GetPostsParams, opts?: UseQueryOptions) : UseQueryResult<GetPostsResponse>;
+
+// v7+ with `useInfiniteQuery` feature
+function useGetPosts(
+  params?: GetPostsParams,
+  opts?: UseQueryOptions & { infinit?: false }
+): UseQueryResult<GetPostsResponse>;
+
+function useGetPosts(
+  params?: GetPostsParams,
+  opts?: UseInfiniteQueryOptions & { infinit: true }
+): UseInfiniteQueryResult<GetPostsResponse[]>;
+```
+
+Internally we just forward to the appropriate React ‑Query hook:
+
+```ts
+return opts?.infinit
+  ? useInfiniteQuery(queryKey, fetcher, opts)
+  : useQuery(queryKey, fetcher, opts);
+```
+
+---
+
+## Usage Examples
+
+### Standard query (unchanged)
+
+```tsx
+const { data, isLoading } = useGetPosts();
+```
+
+### Infinite query (new!)
+
+```tsx
+const {
+  data,
+  fetchNextPage,
+  hasNextPage,
+  isFetchingNextPage,
+} = useGetPosts({}, { infinit: true, getNextPageParam: (last) => last.nextCursor });
+```
+
+### Keep both overloads (when `keepUseQuery: true`)
+
+```tsx
+// Explicit standard query even though the endpoint is in the keys list
+await useGetPosts({}, { infinit: false });
+```
+
+---
+
+## Your Custom Hook Feature
+
+With the new behavior, a hook like `useGetGenereted()` supports both classic and infinite queries based on the `infinit` flag:
+
+```tsx
+// useQuery mode
+const result = useGetGenereted();
+
+// useInfiniteQuery mode
+const infiniteResult = useGetGenereted({}, { infinit: true });
+```
+
+Make sure `getGenereted` is included in the `useInfiniteQuery.keys` array in your `swagger.config.json`:
+
+```jsonc
+"useInfiniteQuery": {
+  "keys": ["getGenereted"],
+  "keepUseQuery": true
+}
+```
+
+---
+
+## FAQ
+
+<details>
+<summary>Why the `infinit` spelling?</summary>
+It mirrors the original CLI option (<code>--infinit</code>) for backward compatibility. Both <code>infinit</code> **and** <code>infinite</code> are accepted, but the generator always emits <code>infinit</code> to avoid a breaking change.
+</details>
+
+<details>
+<summary>How do I migrate existing code?</summary>
+No change is necessary unless you want infinite behaviour. Simply pass <code>{ infinit: true }</code> where appropriate.
+</details>
+
+<details>
+<summary>Can I customise the page param name?</summary>
+Yes – React ‑Query’s <code>getNextPageParam</code> option is fully exposed.
+</details>
+
+---
+
+## Changelog (`v7.0.0`)
+
+* ✨ **Conditional `useQuery` / `useInfiniteQuery` hooks**.
+* 🦩 Improved type safety for optional params.
+* 🏷  ESM build now marked as <code>type": "module"</code>.
+
+
 
 ## Stories
 

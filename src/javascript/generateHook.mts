@@ -134,8 +134,8 @@ function generateHook(
 
       if (hasSwitchablePagination) {
         return `({
-          ${INFINITY_PARAMS}?: Infinite;
-        } & ( Infinite extends false ?
+          ${INFINITY_PARAMS}?: TInf;
+        } & (TInf extends false ?
           SwaggerTypescriptUseQueryOptions<${TData}> :
           UseInfiniteQueryOptions<${TQueryFnData}, ${TError}>
         ))`;
@@ -149,7 +149,7 @@ function generateHook(
     };
 
     const returnType = () => {
-      if (hasSwitchablePagination) return `:  QueryResult<T, Infinite> & ReturnType<typeof useInfiniteQuery<T>>`;
+      if (hasSwitchablePagination) return `: TInf extends false ? UseQueryResult<T, RequestError | Error> : InfiniteQueryResult<T>`;
       return "";
     };
 
@@ -165,7 +165,7 @@ function generateHook(
     })}`;
 
     result += `export const ${hookName} = ${
-      hasSwitchablePagination ? `<T = ${TData}, Infinite extends boolean = false>` : ""
+      hasSwitchablePagination ? `<T = ${TData}, TInf extends boolean = false>` : ""
     }${!isGet ? `<TExtra>` : ""}(
       ${params.join("\n      ")}
     )${returnType()} => {`;
@@ -181,7 +181,7 @@ function generateHook(
         headerParams,
       })} configOverride);`;
 
-      const infiniteBlock = (hasEnable: boolean, typeAssign?: boolean) => `
+      const infiniteBlock = (hasEnable: boolean) => `
         const {
           data: { pages } = {},
           data,
@@ -203,14 +203,14 @@ function generateHook(
         const list = useMemo(() => paginationFlattenData(pages), [pages]);
         const total = getTotal(pages);
         const hasMore = useHasMore(pages, list, queryParams);
-        ${hasEnable ? `if (options?.${INFINITY_PARAMS})` : ""} return { ...rest,data, list, hasMore, total  } ${typeAssign ? `as InfiniteQueryResult<T>` : ""};
+        ${hasEnable ? `if (options?.${INFINITY_PARAMS})` : ""} return { ...rest,data, list, hasMore, total  };
       `;
 
       if (hasSwitchablePagination) {
         result += `
         const useQueryReturn = useQuery({ enabled: !options?.${INFINITY_PARAMS}, queryKey: key, queryFn: fun, ...options });
-        ${infiniteBlock(true, true)}
-        return useQueryReturn as StandardQueryResult<T>;
+        ${infiniteBlock(true)}
+        return useQueryReturn;
       `;
       } else if (supportsPagination) {
         result += infiniteBlock(false);
@@ -336,15 +336,17 @@ export type SwaggerTypescriptUseMutationOptionsVoid<TData, TExtra> = UseMutation
 ${showSwitchPaginationTypes ? `export type StandardQueryResult<TData> = UseQueryResult<TData, RequestError | Error>;
 
 
-export type InfiniteQueryResult<TData> =  UseInfiniteQueryResult<TData, RequestError | Error> & {
-  list: TData[];
+export type InfiniteQueryResult<
+  TData extends { data: Array<unknown>; }
+> = UseInfiniteQueryResult<TData, RequestError | Error> & {
+  list: TData['data'];
   hasMore: boolean;
   total: number;
   hasNextPage:boolean,
   isLoading:boolean,
-};
+}
 
-export type QueryResult<TData, Infinite extends boolean> = Infinite extends true
+export type QueryResult<TData, TInf extends boolean> = TInf extends true
   ? InfiniteQueryResult<TData>
   : StandardQueryResult<TData>;` : ""}
 `;

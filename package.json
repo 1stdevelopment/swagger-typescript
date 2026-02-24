@@ -1,6 +1,6 @@
 {
-  "name": "swagger-typescript",
-  "version": "6.9.5",
+  "name": "swagger-typescript-1st",
+  "version": "1.0.0",
   "description": "An auto ts/js code generate from swagger/openApi",
   "main": "lib/index.mjs",
   "bin": {

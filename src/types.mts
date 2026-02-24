@@ -251,14 +251,6 @@ export interface InfoObject {
   license?: any;
 }
 
-export interface UseInfiniteQuery{
-  keys: string[];
-  keepUseQuery?: boolean ;
-}
-
-type UseInfiniteQueryArray = string | UseInfiniteQuery;
-
-
 export interface FileConfig {
   url?: string | { branch: string; url: string }[];
   dir: string;
@@ -271,10 +263,8 @@ export interface FileConfig {
   /** Default is false */
   keepJson?: boolean;
   reactHooks?: boolean;
-  includes?: string[];
-  excludes?: string[];
   useQuery?: string[];
-  useInfiniteQuery?: Array<UseInfiniteQueryArray>;
+  useInfiniteQuery?: string[];
   mock?: string;
   prettierPath?: string;
   language?: "javascript" | "typescript" | "kotlin";
@@ -284,7 +274,6 @@ export interface FileConfig {
     headerParams?: string[];
   };
   generateEnumAsType?: boolean;
-  defaultNullable?: boolean
 
   //kotlin
   kotlinPackage?: string;

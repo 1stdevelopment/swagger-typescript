@@ -104,7 +104,6 @@ function getParamString(
 function normalizeObjectPropertyNullable(
   propertyName: string,
   schema: Schema,
-  config: Config,
   required?: string[],
 ) {
   if (schema.nullable !== undefined) {
@@ -116,8 +115,6 @@ function normalizeObjectPropertyNullable(
   if (required) {
     return !required.includes(propertyName);
   }
-  if (config.defaultNullable !== undefined) return config.defaultNullable
-  
   return true;
 }
 
@@ -164,7 +161,7 @@ function getTsType(
       Object.entries(properties).map(([pName, _schema]) => ({
         schema: {
           ..._schema,
-          nullable: normalizeObjectPropertyNullable(pName, _schema, config, required),
+          nullable: normalizeObjectPropertyNullable(pName, _schema, required),
         },
         name: pName,
       })),

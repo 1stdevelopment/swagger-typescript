@@ -98,6 +98,7 @@ For Example:
 | `generateEnumAsType` | false                  |
 
 - `enum ReferralStatus {Successed="Successed","Error"="Error"} `
+  | `defaultNullable` | true | If set to false, generated property types would not be optional by default |
 - `type ReferralStatus="Successed" | "Error"; // generateEnumAsType = true `
   |
 

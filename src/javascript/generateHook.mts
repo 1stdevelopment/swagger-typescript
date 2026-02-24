@@ -1,22 +1,12 @@
-import {
-  getDefineParam,
-  getParamString,
-  getSchemaName,
-  getTsType,
-  toPascalCase,
-} from "./utils.mjs";
-import { ApiAST, Config, TypeAST } from "../types.mjs";
-import {
-  DEPRECATED_WARM_MESSAGE,
-  getHooksFunctions,
-  getHooksImports,
-} from "./strings.mjs";
+import { getDefineParam, getParamString, getSchemaName, getTsType, toPascalCase } from "./utils.mjs";
+import { ApiAST, Config, TypeAST, UseInfiniteQuery } from "../types.mjs";
+import { DEPRECATED_WARM_MESSAGE, getHooksFunctions, getHooksImports } from "./strings.mjs";
 import { getJsdoc } from "../utilities/jsdoc.mjs";
 import { isAscending, isMatchWholeWord } from "../utils.mjs";
 import { getParamsString } from "./files/getParamsString.mjs";
 
 const allowedPageParametersNames = ["page", "pageno", "pagenumber", "offset"];
-const INFINITY_PARAMS = "infinit";
+const INFINITY_PARAMS = "infinite";
 
 function generateHook(
   apis: ApiAST[],
@@ -26,6 +16,11 @@ function generateHook(
   let code = getHooksImports({
     hasInfinity: !!config.useInfiniteQuery?.length,
   });
+
+  const showSwitchPaginationTypes = config.useInfiniteQuery?.find(
+    (item): item is UseInfiniteQuery =>
+      typeof item !== "string" && item.keepUseQuery === true,
+  );
 
   const getUseInfiniteQueryMeta = (hookName: string, serviceName: string) => {
     const meta = (config.useInfiniteQuery || []).find((item) => {
@@ -54,11 +49,9 @@ function generateHook(
     } as const;
   };
 
-  apis = apis.sort(({ serviceName }, { serviceName: _serviceName }) =>
+  apis.sort(({ serviceName }, { serviceName: _serviceName }) =>
     isAscending(serviceName, _serviceName),
   );
-
-  let showSwitchPaginationTypes: boolean = false;
 
   const apisCode = apis.reduce((prev, api) => {
     const {
@@ -101,53 +94,36 @@ function generateHook(
       isPartial?: boolean,
     ) =>
       queryParamsTypeName
-        ? `${getParamString(
-            name,
-            !nullable,
-            queryParamsTypeName,
-            undefined,
-            isPartial,
-          )},`
+        ? `${getParamString(name, !nullable, queryParamsTypeName, undefined, isPartial)},`
         : "";
 
     const TVariables = `
       ${pathParams
-        .map(({ name, required, schema, description }) =>
-          getDefineParam(name, required, schema, config, description),
-        )
-        .join(",")} 
+      .map(({ name, required, schema, description }) =>
+        getDefineParam(name, required, schema, config, description),
+      )
+      .join(",")}
       ${pathParams.length > 0 ? "," : ""}
-      ${
-        requestBody
-          ? `${getDefineParam("requestBody", true, requestBody, config)},`
-          : ""
-      }
+      ${requestBody ? `${getDefineParam("requestBody", true, requestBody, config)},` : ""}
       ${getQueryParamName("queryParams")}
       ${
-        headerParams
-          ? `${getParamString(
-              "headerParams",
-              !isHeaderParamsNullable,
-              headerParams as string,
-            )},`
-          : ""
-      } 
+      headerParams
+        ? `${getParamString("headerParams", !isHeaderParamsNullable, headerParams as string)},`
+        : ""
+    }
     `
       .split("\n")
       .map((line) => line.trim())
-      .filter((line) => line)
+      .filter(Boolean)
       .join("\n");
 
     const deps = `[${serviceName}.key,${
       pathParams.length ? `${pathParams.map(({ name }) => name)},` : ""
-    }
-      ${requestBody ? "requestBody," : ""}
-      ${queryParamsTypeName ? "queryParams," : ""}
-      ${headerParams ? "headerParams," : ""}]`;
+    }${requestBody ? "requestBody," : ""}${queryParamsTypeName ? "queryParams," : ""}${
+      headerParams ? "headerParams," : ""
+    }]`;
 
     const hasSwitchablePagination = supportsPagination && keepUseQuery;
-
-    showSwitchPaginationTypes = hasSwitchablePagination;
 
     const getOptionsType = () => {
       if (!isGet) {
@@ -158,11 +134,11 @@ function generateHook(
 
       if (hasSwitchablePagination) {
         return `({
-      ${INFINITY_PARAMS}?: Infinit;
-    } & (
-      SwaggerTypescriptUseQueryOptions<${TData}> |
-      UseInfiniteQueryOptions<${TQueryFnData}, ${TError}>
-    ))`;
+          ${INFINITY_PARAMS}?: Infinite;
+        } & ( Infinite extends false ?
+          SwaggerTypescriptUseQueryOptions<${TData}> :
+          UseInfiniteQueryOptions<${TQueryFnData}, ${TError}>
+        ))`;
       }
 
       if (supportsPagination) {
@@ -171,10 +147,9 @@ function generateHook(
 
       return `SwaggerTypescriptUseQueryOptions<${TData}>`;
     };
-    const responseTypes = () => {
-      if (hasSwitchablePagination) {
-        return `: QueryResult<Infinit>`;
-      }
+
+    const returnType = () => {
+      if (hasSwitchablePagination) return `:  QueryResult<T, Infinite> & ReturnType<typeof useInfiniteQuery<T>>`;
       return "";
     };
 
@@ -184,22 +159,16 @@ function generateHook(
       `${isGet ? `configOverride?: AxiosRequestConfig,` : ""}`,
     ];
 
-    let result =
-      prev +
-      `
-${getJsdoc({
-  description: summary,
-  deprecated: deprecated ? DEPRECATED_WARM_MESSAGE : undefined,
-})}`;
+    let result = prev + `\n${getJsdoc({
+      description: summary,
+      deprecated: deprecated ? DEPRECATED_WARM_MESSAGE : undefined,
+    })}`;
 
-    result += `export const ${hookName} =${
-      hasSwitchablePagination ? " <Infinit extends boolean = false> " : ""
-    }`;
-    if (!isGet) result += `<TExtra>`;
-
-    result += `(
+    result += `export const ${hookName} = ${
+      hasSwitchablePagination ? `<T = ${TData}, Infinite extends boolean = false>` : ""
+    }${!isGet ? `<TExtra>` : ""}(
       ${params.join("\n      ")}
-    ) ${responseTypes()}=> {`;
+    )${returnType()} => {`;
 
     if (isGet) {
       result += `
@@ -210,83 +179,74 @@ ${getJsdoc({
         queryParamsTypeName,
         supportsPagination,
         headerParams,
-      })} configOverride);
-      `;
+      })} configOverride);`;
 
-      const shouldUseInfiniteCondition = supportsPagination
-        ? hasSwitchablePagination
-          ? `${INFINITY_PARAMS}`
-          : "true"
-        : "false";
-
-      const infiniteBlock = (hasEnable: boolean) => /* ts */ `
+      const infiniteBlock = (hasEnable: boolean, typeAssign?: boolean) => `
         const {
           data: { pages } = {},
           data,
           ...rest
         } = useInfiniteQuery({
-        ${hasEnable ? `enabled: options?.${INFINITY_PARAMS},` : ""}
+          ${hasEnable ? `enabled: options?.${INFINITY_PARAMS},` : ""}
           queryKey: key,
           queryFn: ({ pageParam }) =>
             fun({
-              ${
-                queryParameters.find(({ name }) =>
-                  allowedPageParametersNames.includes(name.toLowerCase()),
-                )?.name ?? "page"
-              }: pageParam,
+              ${queryParameters.find(({ name }) =>
+        allowedPageParametersNames.includes(name.toLowerCase()),
+      )?.name ?? "page"}: pageParam,
             }),
           initialPageParam: 1,
           getNextPageParam: (_lastPage, allPages) => allPages.length + 1,
-           ...(options as any),
+          ...options,
         });
 
         const list = useMemo(() => paginationFlattenData(pages), [pages]);
         const total = getTotal(pages);
         const hasMore = useHasMore(pages, list, queryParams);
-        ${hasEnable ? `if (options?.${INFINITY_PARAMS})` : ""}
-        return { ...rest, data, list, hasMore, total } as const;
-`;
+        ${hasEnable ? `if (options?.${INFINITY_PARAMS})` : ""} return { ...rest,data, list, hasMore, total  } ${typeAssign ? `as InfiniteQueryResult<T>` : ""};
+      `;
 
-      if (shouldUseInfiniteCondition === "true") {
-        result += infiniteBlock(false);
-      } else if (shouldUseInfiniteCondition === INFINITY_PARAMS) {
+      if (hasSwitchablePagination) {
         result += `
-${infiniteBlock(true)}
-
-return useQuery({ enabled: !options?.${INFINITY_PARAMS}, queryKey: key, queryFn: fun, ...options });
-`;
+        const useQueryReturn = useQuery({ enabled: !options?.${INFINITY_PARAMS}, queryKey: key, queryFn: fun, ...options });
+        ${infiniteBlock(true, true)}
+        return useQueryReturn as StandardQueryResult<T>;
+      `;
+      } else if (supportsPagination) {
+        result += infiniteBlock(false);
       } else {
         result += `
-return useQuery({ queryKey: key, queryFn: fun, ...options });
-`;
+        return useQuery({ queryKey: key, queryFn: fun, ...options });
+      `;
       }
     } else {
-      result += `return useMutation<SwaggerResponse<TData>, RequestError | Error, {${TVariables}}>({
-        mutationFn: (_o) => {
-          const { ${getParamsString({
-            pathParams,
-            requestBody,
-            queryParamsTypeName,
-            supportsPagination,
-            headerParams,
-            override: false,
-          })} configOverride } = _o || {};
-          return ${serviceName}(${getParamsString({
-            pathParams,
-            requestBody,
-            queryParamsTypeName,
-            supportsPagination,
-            headerParams,
-            override: false,
-          })} configOverride);
-        },
-        ...options
-      });`;
+      result += `
+        return useMutation({
+          mutationFn: (_o) => {
+            const { ${getParamsString({
+        pathParams,
+        requestBody,
+        queryParamsTypeName,
+        supportsPagination,
+        headerParams,
+        override: false,
+      })} configOverride } = _o || {};
+            return ${serviceName}(${getParamsString({
+        pathParams,
+        requestBody,
+        queryParamsTypeName,
+        supportsPagination,
+        headerParams,
+        override: false,
+      })} configOverride);
+          },
+          ...options
+        });
+      `;
     }
 
     result += `
-    };
-    `;
+    };`;
 
     if (isGet) {
       const infoParams = params
@@ -294,15 +254,13 @@ return useQuery({ queryKey: key, queryFn: fun, ...options });
         .join("");
 
       result += `
-${hookName}.info = (${infoParams}) => {
-  return {
-    key: ${deps} as QueryKey,
-    fun: (${
-      supportsPagination
+      ${hookName}.info = (${infoParams}) => {
+        return {
+          key: ${deps} as QueryKey,
+          fun: (${supportsPagination
         ? getQueryParamName("_param", true, true).replace(/,$/, "")
-        : ""
-    }) =>
-      ${serviceName}(${getParamsString({
+        : ""}) =>
+            ${serviceName}(${getParamsString({
         pathParams,
         requestBody,
         queryParamsTypeName,
@@ -310,58 +268,58 @@ ${hookName}.info = (${infoParams}) => {
         headerParams,
         override: true,
       })} configOverride),
-  } as const;
-};
+        } as const;
+      };
 
-${hookName}.prefetch = (
-  client: QueryClient,
-  ${params.join("\n  ")}
-) => {
-  const { key, fun } = ${hookName}.info(${getParamsString({
-    pathParams,
-    requestBody,
-    queryParamsTypeName,
-    supportsPagination,
-    headerParams,
-    override: false,
-  })} configOverride);
+      ${hookName}.prefetch = (
+        client: QueryClient,
+        ${params.join("\n  ")}
+      ) => {
+        const { key, fun } = ${hookName}.info(${getParamsString({
+        pathParams,
+        requestBody,
+        queryParamsTypeName,
+        supportsPagination,
+        headerParams,
+        override: false,
+      })} configOverride);
 
-  return client.getQueryData(key)
-    ? Promise.resolve()
-    : client.prefetchQuery({ queryKey: key, queryFn: () => fun(), ...options });
-};
-`;
+        return client.getQueryData(key)
+          ? Promise.resolve()
+          : client.prefetchQuery({ queryKey: key, queryFn: () => fun(), ...options });
+      };
+    `;
     }
 
     return result;
   }, "");
 
-  code +=
-    types
-      .sort(({ name }, { name: _name }) => isAscending(name, _name))
-      .reduce((prev, { name: _name }) => {
-        const name = getSchemaName(_name);
-        if (!isMatchWholeWord(apisCode, name)) return prev;
-        return prev + ` ${name},`;
-      }, "import type {") + ` } from "./types"\n`;
+  code += types
+    .sort(({ name }, { name: _name }) => isAscending(name, _name))
+    .reduce((prev, { name: _name }) => {
+      const name = getSchemaName(_name);
+      if (!isMatchWholeWord(apisCode, name)) return prev;
+      return prev + ` ${name},`;
+    }, "import type {") + ` } from "./types"\n`;
 
-  code +=
-    apis.reduce((prev, { serviceName }) => {
-      return prev + ` ${serviceName},`;
-    }, "import {") + ` } from "./services"\n`;
+  code += apis.reduce((prev, { serviceName }) => {
+    return prev + ` ${serviceName},`;
+  }, "import {") + ` } from "./services"\n`;
 
   code += getHooksFunctions({ hasInfinity: !!config.useInfiniteQuery?.length });
 
   code += `
-export export type SwaggerTypescriptMutationDefaultParams<TExtra> = {
+import type { UseQueryResult, UseMutationOptions, UseInfiniteQueryOptions, QueryKey } from "@tanstack/react-query";
+
+export type SwaggerTypescriptMutationDefaultParams<TExtra> = {
   _extraVariables?: TExtra;
   configOverride?: AxiosRequestConfig;
 };
 
-export type SwaggerTypescriptUseQueryOptions<TData> = Omit<
-  UseQueryOptions<SwaggerResponse<TData>, RequestError | Error>,
-  "queryKey"
->;
+type SwaggerTypescriptUseQueryOptions<TData> = Omit<UseQueryOptions<
+  SwaggerResponse<TData>,
+  RequestError | Error
+>, 'queryKey'>;
 
 export type SwaggerTypescriptUseMutationOptions<TData, TRequest, TExtra> = UseMutationOptions<
   SwaggerResponse<TData>,
@@ -374,18 +332,21 @@ export type SwaggerTypescriptUseMutationOptionsVoid<TData, TExtra> = UseMutation
   RequestError | Error,
   SwaggerTypescriptMutationDefaultParams<TExtra> | void
 >;
-${showSwitchPaginationTypes && `export type InfiniteQueryResult = 
-  ReturnType<typeof useInfiniteQuery>
-  & {
-  list: unknown[];
+
+${showSwitchPaginationTypes ? `export type StandardQueryResult<TData> = UseQueryResult<TData, RequestError | Error>;
+
+
+export type InfiniteQueryResult<TData> =  UseInfiniteQueryResult<TData, RequestError | Error> & {
+  list: TData[];
+  hasMore: boolean;
   total: number;
-  hasMore: boolean
+  hasNextPage:boolean,
+  isLoading:boolean,
 };
 
-export type StandardQueryResult = ReturnType<typeof useQuery>;
-
-export type QueryResult<Infinit extends boolean> = Infinit extends true ? InfiniteQueryResult : StandardQueryResult
-`}
+export type QueryResult<TData, Infinite extends boolean> = Infinite extends true
+  ? InfiniteQueryResult<TData>
+  : StandardQueryResult<TData>;` : ""}
 `;
 
   code += apisCode;
